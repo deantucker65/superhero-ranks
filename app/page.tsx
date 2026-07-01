@@ -28,7 +28,7 @@ export default function Home() {
 
       const allUniverses = [
         ...new Set(
-          data?.flatMap(a: any) => a.characters?.map(c: any) => c.universe).filter(Boolean)) || []
+          data?.flatMap((a: any) => a.characters?.map((c: any) => c.universe).filter(Boolean)) || []
         )
       ].sort()
       setUniverses(allUniverses)
