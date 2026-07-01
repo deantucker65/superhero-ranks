@@ -16,7 +16,7 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [filterUniverse, setFilterUniverse] = useState('')
   const [filterTier, setFilterTier] = useState('')
-  const [universes, setUniverses] = useState<[]>([])
+  const [universes, setUniverses] = useState<any[]>([])
 
   useEffect(() => {
     async function loadActors() {
