@@ -5,7 +5,7 @@ export const metadata = {
   description: 'Every actor. Every hero. Ranked.',
 }
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="bg-gray-950 min-h-screen">
