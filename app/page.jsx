@@ -13,11 +13,11 @@ const tierColors = {
 }
 
 export default function Home() {
-  const [actors, setActors] = useState<any[]>([])
+  const [actors, setActors] = useState([])
   const [search, setSearch] = useState('')
   const [filterUniverse, setFilterUniverse] = useState('')
   const [filterTier, setFilterTier] = useState('')
-  const [universes, setUniverses] = useState<any[]>([])
+  const [universes, setUniverses] = useState([])
 
   useEffect(() => {
     async function loadActors() {
@@ -29,7 +29,7 @@ export default function Home() {
 
       const allUniverses = [
         ...new Set(
-          data?.flatMap((a: any) => a.characters?.map((c: any) => c.universe).filter(Boolean)) || []
+          (data || []).flatMap(a => (a.characters || []).map(c => c.universe).filter(Boolean))
         )
       ].sort()
       setUniverses(allUniverses)
@@ -37,9 +37,9 @@ export default function Home() {
     loadActors()
   }, [])
 
-    const filtered = actors.filter(actor => {
+  const filtered = actors.filter(actor => {
     const matchesSearch = actor.name.toLowerCase().includes(search.toLowerCase())
-    const chars = /** @type {any[]} */ (actor.characters || [])
+    const chars = actor.characters || []
     const matchesUniverse = !filterUniverse || chars.some(c => c.universe === filterUniverse)
     const matchesTier = !filterTier || chars.some(c => c.power_tier === filterTier)
     return matchesSearch && matchesUniverse && matchesTier
@@ -55,7 +55,6 @@ export default function Home() {
           Every actor. Every hero. Ranked.
         </p>
 
-        {/* Search and filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-10">
           <input
             type="text"
@@ -92,7 +91,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((actor) => {
-              const topCharacter = actor.characters?.sort((a, b) => {
+              const topCharacter = (actor.characters || []).sort((a, b) => {
                 if (a.rank && b.rank) return a.rank - b.rank
                 if (a.rank) return -1
                 if (b.rank) return 1
@@ -117,7 +116,7 @@ export default function Home() {
                     <div className="p-6">
                       <h2 className="text-xl font-bold mb-2">{actor.name}</h2>
                       <p className="text-gray-400 text-sm mb-3">
-                        {actor.characters?.length ?? 0} character{actor.characters?.length !== 1 ? 's' : ''}
+                        {(actor.characters || []).length} character{(actor.characters || []).length !== 1 ? 's' : ''}
                       </p>
                       {topCharacter && (
                         <div className="flex items-center justify-between">
