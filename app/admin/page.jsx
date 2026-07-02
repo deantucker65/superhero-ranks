@@ -29,6 +29,12 @@ export default function AdminPage() {
   const [deleteCharacters, setDeleteCharacters] = useState([])
   const [deleteCharacterId, setDeleteCharacterId] = useState('')
   const [deleteMessage, setDeleteMessage] = useState('')
+    const [editActorMode, setEditActorMode] = useState(false)
+  const [editActorFormId, setEditActorFormId] = useState('')
+  const [editActorName, setEditActorName] = useState('')
+  const [editActorBio, setEditActorBio] = useState('')
+  const [editActorPhotoUrl, setEditActorPhotoUrl] = useState('')
+  const [editActorMessage, setEditActorMessage] = useState('')
   useEffect(() => {
     loadActors()
   }, [])
@@ -105,6 +111,24 @@ export default function AdminPage() {
       setCharacterPhotoUrl('')
     }
   }
+    async function updateActor(e) {
+    e.preventDefault()
+    const { error } = await supabase
+      .from('actors')
+      .update({
+        name: editActorName,
+        bio: editActorBio,
+        photo_url: editActorPhotoUrl
+      })
+      .eq('id', editActorFormId)
+    if (error) {
+      setEditActorMessage('Error: ' + error.message)
+    } else {
+      setEditActorMessage('Actor updated successfully!')
+      loadActors()
+    }
+  }
+
   async function deleteCharacter() {
     if (!deleteCharacterId) return
     const confirm = window.confirm('Are you sure you want to delete this character?')
@@ -316,7 +340,7 @@ export default function AdminPage() {
         </div>
 
         {/* Edit Character */}
-        <div className="bg-gray-800 rounded-2xl p-6">
+        <div className="bg-gray-800 rounded-2xl p-6 mb-8">
           <h2 className="text-xl font-bold mb-4">Edit Character</h2>
           <div className="space-y-4 mb-6">
             <div>
@@ -440,7 +464,81 @@ export default function AdminPage() {
           {editMessage && <p className="mt-4 text-green-400">{editMessage}</p>}
         </div>
 
-       </div>
+       
+        {/* Edit Actor */}
+        <div className="bg-gray-800 rounded-2xl p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4">Edit Actor</h2>
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Select Actor</label>
+              <select
+                value={editActorFormId}
+                onChange={(e) => {
+                  const actorId = e.target.value
+                  setEditActorFormId(actorId)
+                  setEditActorMode(false)
+                  setEditActorMessage('')
+                  if (actorId) {
+                    const actor = actors.find(a => a.id === actorId)
+                    if (actor) {
+                      setEditActorName(actor.name)
+                      setEditActorBio(actor.bio || '')
+                      setEditActorPhotoUrl(actor.photo_url || '')
+                      setEditActorMode(true)
+                    }
+                  }
+                }}
+                className="w-full bg-gray-700 rounded-lg px-4 py-2 text-white"
+              >
+                <option value="">Select an actor...</option>
+                {actors.map((actor) => (
+                  <option key={actor.id} value={actor.id}>{actor.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {editActorMode && (
+            <form onSubmit={updateActor} className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Actor Name</label>
+                <input
+                  type="text"
+                  value={editActorName}
+                  onChange={(e) => setEditActorName(e.target.value)}
+                  className="w-full bg-gray-700 rounded-lg px-4 py-2 text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Bio</label>
+                <textarea
+                  value={editActorBio}
+                  onChange={(e) => setEditActorBio(e.target.value)}
+                  className="w-full bg-gray-700 rounded-lg px-4 py-2 text-white"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Actor Photo URL</label>
+                <input
+                  type="text"
+                  value={editActorPhotoUrl}
+                  onChange={(e) => setEditActorPhotoUrl(e.target.value)}
+                  className="w-full bg-gray-700 rounded-lg px-4 py-2 text-white"
+                  placeholder="https://..."
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-blue-500 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-400"
+              >
+                Save Actor
+              </button>
+            </form>
+          )}
+          {editActorMessage && <p className="mt-4 text-green-400">{editActorMessage}</p>}
+        </div>
 
         {/* Delete */}
         <div className="bg-gray-800 rounded-2xl p-6 mt-8">
@@ -493,7 +591,7 @@ export default function AdminPage() {
           </div>
           {deleteMessage && <p className="mt-4 text-green-400">{deleteMessage}</p>}
         </div>
-
+        </div>
     </main>
   )
 }
