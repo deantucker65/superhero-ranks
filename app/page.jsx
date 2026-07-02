@@ -37,12 +37,11 @@ export default function Home() {
     loadActors()
   }, [])
 
-  const filtered = actors.filter(actor => {
+    const filtered = actors.filter(actor => {
     const matchesSearch = actor.name.toLowerCase().includes(search.toLowerCase())
-    const matchesUniverse = !filterUniverse ||
-      actor.characters?.some(c => c.universe === filterUniverse)
-    const matchesTier = !filterTier ||
-      actor.characters?.some(c => c.power_tier === filterTier)
+    const chars = /** @type {any[]} */ (actor.characters || [])
+    const matchesUniverse = !filterUniverse || chars.some(c => c.universe === filterUniverse)
+    const matchesTier = !filterTier || chars.some(c => c.power_tier === filterTier)
     return matchesSearch && matchesUniverse && matchesTier
   })
 
