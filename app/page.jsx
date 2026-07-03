@@ -99,33 +99,36 @@ export default function Home() {
                 return order[a.power_tier] - order[b.power_tier]
               })[0]
 
-              return (
+                            return (
                 <Link href={`/actors/${actor.id}`} key={actor.id}>
                   <div className="bg-gray-800 rounded-2xl overflow-hidden hover:bg-gray-700 transition cursor-pointer">
-                    {actor.photo_url ? (
+                    {topCharacter?.photo_url ? (
+                      <img
+                        src={topCharacter.photo_url}
+                        alt={topCharacter.name}
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : actor.photo_url ? (
                       <img
                         src={actor.photo_url}
                         alt={actor.name}
-                        className="w-full h-32 object-contain bg-gray-900"
+                        className="w-full h-48 object-contain bg-gray-900"
                       />
                     ) : (
-                      <div className="w-full h-32 bg-gray-700 flex items-center justify-center">
+                      <div className="w-full h-48 bg-gray-700 flex items-center justify-center">
                         <span className="text-gray-500 text-4xl">?</span>
                       </div>
                     )}
-                    <div className="p-6">
-                      <h2 className="text-xl font-bold mb-2">{actor.name}</h2>
-                      <p className="text-gray-400 text-sm mb-3">
-                        {(actor.characters || []).length} character{(actor.characters || []).length !== 1 ? 's' : ''}
-                      </p>
-                      {topCharacter && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-300 text-sm">{topCharacter.name}</span>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-white font-bold">{topCharacter?.name || 'No characters'}</span>
+                        {topCharacter && (
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${tierColors[topCharacter.power_tier]}`}>
                             {topCharacter.power_tier}
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm">{actor.name}</p>
                     </div>
                   </div>
                 </Link>

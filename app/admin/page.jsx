@@ -35,6 +35,12 @@ export default function AdminPage() {
   const [editActorBio, setEditActorBio] = useState('')
   const [editActorPhotoUrl, setEditActorPhotoUrl] = useState('')
   const [editActorMessage, setEditActorMessage] = useState('')
+
+  const [bracketActorId, setBracketActorId] = useState('')
+  const [bracketCharacters, setBracketCharacters] = useState([])
+  const [bracketMatchups, setBracketMatchups] = useState([])
+  const [bracketMessage, setBracketMessage] = useState('')
+
   useEffect(() => {
     loadActors()
   }, [])
@@ -187,6 +193,136 @@ export default function AdminPage() {
       setEditMessage('Character updated successfully!')
       loadCharactersForActor(editActorId)
     }
+  }
+
+  // Standard tournament seed order: 1 plays the lowest seed, 2 plays the
+  // next lowest, etc. For a size-4 bracket this returns [1,4,2,3].
+  function seedOrder(size) {
+    let order = [1]
+    while (order.length < size) {
+      const next = []
+      const len = order.length * 2
+      for (const s of order) {
+        next.push(s, len + 1 - s)
+      }
+      order = next
+    }
+    return order
+  }
+
+  function charName(id) {
+    const c = bracketCharacters.find(ch => ch.id === id)
+    return c ? c.name : 'TBD'
+  }
+
+  async function loadBracket(actorId) {
+    if (!actorId) {
+      setBracketCharacters([])
+      setBracketMatchups([])
+      return
+    }
+    const { data: chars } = await supabase
+      .from('characters')
+      .select('*')
+      .eq('actor_id', actorId)
+      .order('rank')
+    setBracketCharacters(chars || [])
+    const { data: matchups } = await supabase
+      .from('matchups')
+      .select('*')
+      .eq('actor_id', actorId)
+      .order('round')
+      .order('position')
+    setBracketMatchups(matchups || [])
+  }
+
+  async function generateBracket() {
+    // Fetch fresh so newly added characters are always included
+    const { data: freshChars } = await supabase
+      .from('characters')
+      .select('*')
+      .eq('actor_id', bracketActorId)
+      .order('rank')
+    setBracketCharacters(freshChars || [])
+    const chars = [...(freshChars || [])].sort((a, b) => (a.rank || 999) - (b.rank || 999))
+    if (chars.length < 2) {
+      setBracketMessage('Need at least 2 characters to make a bracket.')
+      return
+    }
+    if (bracketMatchups.length > 0) {
+      const ok = window.confirm('This will replace the existing bracket for this actor. Continue?')
+      if (!ok) return
+    }
+
+    await supabase.from('matchups').delete().eq('actor_id', bracketActorId)
+
+    // Bracket size is the next power of 2 (2, 4, 8...). Extra slots become byes.
+    let size = 2
+    while (size < chars.length) size = size * 2
+    const totalRounds = Math.log2(size)
+    const order = seedOrder(size)
+
+    // Build every round's matchups in memory, then insert all at once
+    const rows = []
+    for (let round = 1; round <= totalRounds; round++) {
+      const count = size / Math.pow(2, round)
+      for (let pos = 0; pos < count; pos++) {
+        rows.push({
+          actor_id: bracketActorId,
+          round,
+          position: pos,
+          character1_id: null,
+          character2_id: null,
+          winner_id: null
+        })
+      }
+    }
+
+    // Fill round 1 using seed order; missing seeds are byes
+    const roundOne = rows.filter(m => m.round === 1)
+    for (let i = 0; i < roundOne.length; i++) {
+      const seed1 = order[i * 2]
+      const seed2 = order[i * 2 + 1]
+      roundOne[i].character1_id = seed1 <= chars.length ? chars[seed1 - 1].id : null
+      roundOne[i].character2_id = seed2 <= chars.length ? chars[seed2 - 1].id : null
+      if (roundOne[i].character1_id && !roundOne[i].character2_id) {
+        roundOne[i].winner_id = roundOne[i].character1_id
+      }
+    }
+
+    // Advance bye winners into the next round automatically
+    for (const m of rows) {
+      if (m.winner_id) {
+        const next = rows.find(x => x.round === m.round + 1 && x.position === Math.floor(m.position / 2))
+        if (next) {
+          if (m.position % 2 === 0) next.character1_id = m.winner_id
+          else next.character2_id = m.winner_id
+        }
+      }
+    }
+
+    const { error } = await supabase.from('matchups').insert(rows)
+    if (error) {
+      setBracketMessage('Error: ' + error.message)
+    } else {
+      setBracketMessage('Bracket generated!')
+      loadBracket(bracketActorId)
+    }
+  }
+
+  async function setMatchupWinner(matchup, winnerId) {
+    await supabase.from('matchups').update({ winner_id: winnerId }).eq('id', matchup.id)
+    // Push the winner into the next round's matchup (and clear its old pick)
+    const next = bracketMatchups.find(
+      m => m.round === matchup.round + 1 && m.position === Math.floor(matchup.position / 2)
+    )
+    if (next) {
+      const update = matchup.position % 2 === 0
+        ? { character1_id: winnerId, winner_id: null }
+        : { character2_id: winnerId, winner_id: null }
+      await supabase.from('matchups').update(update).eq('id', next.id)
+    }
+    loadBracket(bracketActorId)
   }
 
   return (
@@ -590,6 +726,102 @@ export default function AdminPage() {
             </div>
           </div>
           {deleteMessage && <p className="mt-4 text-green-400">{deleteMessage}</p>}
+        </div>
+
+        {/* Playoff Bracket */}
+        <div className="bg-gray-800 rounded-2xl p-6 mt-8">
+          <h2 className="text-xl font-bold mb-4">Playoff Bracket</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Select Actor</label>
+              <select
+                value={bracketActorId}
+                onChange={(e) => {
+                  setBracketActorId(e.target.value)
+                  setBracketMessage('')
+                  loadBracket(e.target.value)
+                }}
+                className="w-full bg-gray-700 rounded-lg px-4 py-2 text-white"
+              >
+                <option value="">Select an actor...</option>
+                {actors.map((actor) => (
+                  <option key={actor.id} value={actor.id}>{actor.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {bracketActorId && (
+              <button
+                onClick={generateBracket}
+                className="bg-yellow-400 text-black font-bold px-6 py-2 rounded-lg hover:bg-yellow-300"
+              >
+                {bracketMatchups.length > 0 ? 'Regenerate Bracket' : 'Generate Bracket'}
+              </button>
+            )}
+
+            {bracketMatchups.length > 0 && (() => {
+              const maxRound = Math.max(...bracketMatchups.map(m => m.round))
+              const rounds = [...new Set(bracketMatchups.map(m => m.round))]
+              const final = bracketMatchups.find(m => m.round === maxRound)
+              return (
+                <div className="space-y-6">
+                  {rounds.map((round) => (
+                    <div key={round}>
+                      <h3 className="font-bold text-gray-300 mb-2">
+                        {round === maxRound ? 'Final' : round === maxRound - 1 ? 'Semifinals' : 'Round ' + round}
+                      </h3>
+                      <div className="space-y-2">
+                        {bracketMatchups.filter(m => m.round === round).map((m) => (
+                          <div key={m.id} className="bg-gray-700 rounded-lg p-3 flex items-center gap-3 flex-wrap">
+                            {!m.character2_id && m.character1_id ? (
+                              <span className="text-gray-300">
+                                <span className="font-bold text-yellow-400">{charName(m.character1_id)}</span>
+                                {' '}gets a bye and advances
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => setMatchupWinner(m, m.character1_id)}
+                                  disabled={!m.character1_id || !m.character2_id}
+                                  className={
+                                    'px-4 py-1 rounded-lg font-bold ' +
+                                    (m.winner_id && m.winner_id === m.character1_id
+                                      ? 'bg-yellow-400 text-black'
+                                      : 'bg-gray-600 text-white hover:bg-gray-500')
+                                  }
+                                >
+                                  {charName(m.character1_id)}
+                                </button>
+                                <span className="text-gray-400 text-sm">vs</span>
+                                <button
+                                  onClick={() => setMatchupWinner(m, m.character2_id)}
+                                  disabled={!m.character1_id || !m.character2_id}
+                                  className={
+                                    'px-4 py-1 rounded-lg font-bold ' +
+                                    (m.winner_id && m.winner_id === m.character2_id
+                                      ? 'bg-yellow-400 text-black'
+                                      : 'bg-gray-600 text-white hover:bg-gray-500')
+                                  }
+                                >
+                                  {charName(m.character2_id)}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {final && final.winner_id && (
+                    <p className="text-lg">
+                      🏆 Champion: <span className="font-bold text-yellow-400">{charName(final.winner_id)}</span>
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+          {bracketMessage && <p className="mt-4 text-green-400">{bracketMessage}</p>}
         </div>
         </div>
     </main>
