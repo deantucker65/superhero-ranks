@@ -18,6 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/" className="text-gray-300 hover:text-yellow-400 transition">
                 All Actors
               </a>
+              <a href="/characters" className="text-gray-300 hover:text-yellow-400 transition">
+                Shared Characters
+              </a>
               <a href="/admin" className="text-gray-300 hover:text-yellow-400 transition">
                 Admin
               </a>
