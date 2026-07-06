@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import CharacterVotes from '../../CharacterVotes'
 
 const tierColors = {
   S: 'bg-yellow-400 text-black',
@@ -85,6 +86,20 @@ export default async function ActorPage({ params }) {
     return order[a.power_tier] - order[b.power_tier]
   })
 
+  // Tally upvotes per character (public read).
+  const characterIds = characters.map((c) => c.id)
+  let voteCounts = {}
+  if (characterIds.length > 0) {
+    const { data: votes } = await supabase
+      .from('votes')
+      .select('character_id')
+      .in('character_id', characterIds)
+    voteCounts = (votes || []).reduce((acc, v) => {
+      acc[v.character_id] = (acc[v.character_id] || 0) + 1
+      return acc
+    }, {})
+  }
+
   return (
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -135,9 +150,15 @@ export default async function ActorPage({ params }) {
                       )}
                       <h3 className="text-2xl font-bold">{character.name}</h3>
                     </div>
-                    <span className={`px-4 py-1 rounded-full text-sm font-bold ${tierColors[character.power_tier]}`}>
-                      {tierLabels[character.power_tier]}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <CharacterVotes
+                        characterId={character.id}
+                        initialCount={voteCounts[character.id] || 0}
+                      />
+                      <span className={`px-4 py-1 rounded-full text-sm font-bold ${tierColors[character.power_tier]}`}>
+                        {tierLabels[character.power_tier]}
+                      </span>
+                    </div>
                   </div>
 
                   {character.universe && (
