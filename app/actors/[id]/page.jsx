@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import CharacterVotes from '../../CharacterVotes'
 import MatchupVote from '../../MatchupVote'
+import Discussion from '../../Discussion'
 
 const tierColors = {
   S: 'bg-yellow-400 text-black',
@@ -254,6 +255,8 @@ export default async function ActorPage({ params }) {
             </div>
           </div>
         )}
+
+        <Discussion actorId={actor.id} />
       </div>
     </main>
   )
