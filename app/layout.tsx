@@ -1,4 +1,5 @@
 import './globals.css'
+import AuthNav from './AuthNav'
 
 export const metadata = {
   title: 'Hero Rankings',
@@ -21,9 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/characters" className="text-gray-300 hover:text-yellow-400 transition">
                 Shared Characters
               </a>
-              <a href="/admin" className="text-gray-300 hover:text-yellow-400 transition">
-                Admin
-              </a>
+              <AuthNav />
             </div>
           </div>
         </nav>
