@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import CharacterVotes from '../../CharacterVotes'
+import MatchupVote from '../../MatchupVote'
 
 const tierColors = {
   S: 'bg-yellow-400 text-black',
@@ -16,24 +17,35 @@ const tierLabels = {
   C: 'C - Street Level',
 }
 
-function MatchupBox({ matchup, nameOf }) {
+function MatchupBox({ matchup, nameOf, voteCounts }) {
   const slots = [matchup.character1_id, matchup.character2_id]
+  const bothFilled = matchup.character1_id && matchup.character2_id
   return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden w-40 text-sm shrink-0">
-      {slots.map((cid, i) => (
-        <div
-          key={i}
-          className={
-            'px-3 py-2 ' +
-            (i === 0 ? 'border-b border-gray-700 ' : '') +
-            (matchup.winner_id && matchup.winner_id === cid
-              ? 'bg-yellow-400 text-black font-bold'
-              : cid ? 'text-gray-300' : 'text-gray-600 italic')
-          }
-        >
-          {cid ? nameOf(cid) : (matchup.winner_id ? 'Bye' : 'TBD')}
-        </div>
-      ))}
+    <div className="shrink-0">
+      <div className="bg-gray-800 rounded-lg overflow-hidden w-40 text-sm">
+        {slots.map((cid, i) => (
+          <div
+            key={i}
+            className={
+              'px-3 py-2 ' +
+              (i === 0 ? 'border-b border-gray-700 ' : '') +
+              (matchup.winner_id && matchup.winner_id === cid
+                ? 'bg-yellow-400 text-black font-bold'
+                : cid ? 'text-gray-300' : 'text-gray-600 italic')
+            }
+          >
+            {cid ? nameOf(cid) : (matchup.winner_id ? 'Bye' : 'TBD')}
+          </div>
+        ))}
+      </div>
+      {bothFilled && (
+        <MatchupVote
+          matchupId={matchup.id}
+          c1={{ id: matchup.character1_id, name: nameOf(matchup.character1_id) }}
+          c2={{ id: matchup.character2_id, name: nameOf(matchup.character2_id) }}
+          initialCounts={voteCounts || {}}
+        />
+      )}
     </div>
   )
 }
@@ -60,6 +72,23 @@ export default async function ActorPage({ params }) {
 
   // Bracket layout: split earlier rounds half-left / half-right of the final
   const bracket = matchups || []
+
+  // Tally community bracket votes per matchup (public read). Shape:
+  // { [matchupId]: { [characterId]: count } }. Display-only; never affects winner_id.
+  const matchupIds = bracket.map((m) => m.id)
+  let matchupVoteCounts = {}
+  if (matchupIds.length > 0) {
+    const { data: mVotes } = await supabase
+      .from('matchup_votes')
+      .select('matchup_id, character_id')
+      .in('matchup_id', matchupIds)
+    matchupVoteCounts = (mVotes || []).reduce((acc, v) => {
+      const m = (acc[v.matchup_id] = acc[v.matchup_id] || {})
+      m[v.character_id] = (m[v.character_id] || 0) + 1
+      return acc
+    }, {})
+  }
+
   const maxRound = bracket.length > 0 ? Math.max(...bracket.map(m => m.round)) : 0
   const finalMatch = bracket.find(m => m.round === maxRound)
   const leftCols = []
@@ -191,7 +220,7 @@ export default async function ActorPage({ params }) {
               {leftCols.map((col, i) => (
                 <div key={'L' + i} className="flex flex-col justify-around gap-4 self-stretch">
                   {col.map((m) => (
-                    <MatchupBox key={m.id} matchup={m} nameOf={nameOf} />
+                    <MatchupBox key={m.id} matchup={m} nameOf={nameOf} voteCounts={matchupVoteCounts[m.id]} />
                   ))}
                 </div>
               ))}
@@ -212,13 +241,13 @@ export default async function ActorPage({ params }) {
                 ) : (
                   <span className="text-gray-500 text-sm">Champion TBD</span>
                 )}
-                {finalMatch && <MatchupBox matchup={finalMatch} nameOf={nameOf} />}
+                {finalMatch && <MatchupBox matchup={finalMatch} nameOf={nameOf} voteCounts={matchupVoteCounts[finalMatch.id]} />}
               </div>
 
               {rightCols.slice().reverse().map((col, i) => (
                 <div key={'R' + i} className="flex flex-col justify-around gap-4 self-stretch">
                   {col.map((m) => (
-                    <MatchupBox key={m.id} matchup={m} nameOf={nameOf} />
+                    <MatchupBox key={m.id} matchup={m} nameOf={nameOf} voteCounts={matchupVoteCounts[m.id]} />
                   ))}
                 </div>
               ))}
