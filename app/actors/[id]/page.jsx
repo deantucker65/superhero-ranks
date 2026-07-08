@@ -3,6 +3,7 @@ import Link from 'next/link'
 import CharacterVotes from '../../CharacterVotes'
 import MatchupVote from '../../MatchupVote'
 import Discussion from '../../Discussion'
+import Image from 'next/image'
 
 const tierColors = {
   S: 'bg-yellow-400 text-black',
@@ -139,9 +140,11 @@ export default async function ActorPage({ params }) {
 
         <div className="flex items-center gap-6 mb-8">
           {actor.photo_url ? (
-            <img
+            <Image
               src={actor.photo_url}
               alt={actor.name}
+              width={96}
+              height={96}
               className="w-24 h-24 rounded-full object-cover"
             />
           ) : (
@@ -164,11 +167,15 @@ export default async function ActorPage({ params }) {
             {characters.map((character) => (
               <div key={character.id} className="bg-gray-800 rounded-2xl overflow-hidden">
                 {character.photo_url && (
-                  <img
-                    src={character.photo_url}
-                    alt={character.name}
-                    className="w-full h-56 object-contain bg-gray-900"
-                  />
+                  <div className="relative w-full h-56 bg-gray-900">
+                    <Image
+                      src={character.photo_url}
+                      alt={character.name}
+                      fill
+                      sizes="(max-width: 896px) 100vw, 800px"
+                      className="object-contain"
+                    />
+                  </div>
                 )}
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-3">
@@ -230,11 +237,15 @@ export default async function ActorPage({ params }) {
                 {championChar ? (
                   <div className="flex flex-col items-center">
                     {championChar.photo_url && (
-                      <img
-                        src={championChar.photo_url}
-                        alt={championChar.name}
-                        className="h-32 w-auto max-w-xs rounded-xl object-contain border-4 border-yellow-400"
-                      />
+                      <div className="relative h-32 w-full max-w-xs rounded-xl overflow-hidden border-4 border-yellow-400">
+                        <Image
+                          src={championChar.photo_url}
+                          alt={championChar.name}
+                          fill
+                          sizes="320px"
+                          className="object-contain"
+                        />
+                      </div>
                     )}
                     <span className="text-yellow-400 font-black text-lg mt-2">🏆 {championChar.name}</span>
                     <span className="text-gray-400 text-xs uppercase tracking-wide">Champion</span>

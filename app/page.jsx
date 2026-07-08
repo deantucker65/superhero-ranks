@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const tierColors = {
   S: 'bg-yellow-400 text-black',
@@ -103,17 +104,25 @@ export default function Home() {
                 <Link href={`/actors/${actor.id}`} key={actor.id}>
                   <div className="bg-gray-800 rounded-2xl overflow-hidden hover:bg-gray-700 transition cursor-pointer">
                     {actor.photo_url ? (
-                      <img
-                        src={actor.photo_url}
-                        alt={actor.name}
-                        className="w-full h-48 object-contain bg-gray-900"
-                      />
+                      <div className="relative w-full h-48 bg-gray-900">
+                        <Image
+                          src={actor.photo_url}
+                          alt={actor.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 300px"
+                          className="object-contain"
+                        />
+                      </div>
                     ) : topCharacter?.photo_url ? (
-                      <img
-                        src={topCharacter.photo_url}
-                        alt={topCharacter.name}
-                        className="w-full h-48 object-cover"
-                      />
+                      <div className="relative w-full h-48">
+                        <Image
+                          src={topCharacter.photo_url}
+                          alt={topCharacter.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 300px"
+                          className="object-cover"
+                        />
+                      </div>
                     ) : (
                       <div className="w-full h-48 bg-gray-700 flex items-center justify-center">
                         <span className="text-gray-500 text-4xl">?</span>

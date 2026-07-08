@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const tierColors = {
   S: 'bg-yellow-400 text-black',
@@ -58,11 +59,15 @@ export default async function SharedCharactersPage() {
                       className="bg-gray-900 rounded-xl overflow-hidden hover:ring-2 hover:ring-yellow-400 transition"
                     >
                       {c.photo_url ? (
-                        <img
-                          src={c.photo_url}
-                          alt={c.name}
-                          className="w-full h-40 object-contain bg-gray-950"
-                        />
+                        <div className="relative w-full h-40 bg-gray-950">
+                          <Image
+                            src={c.photo_url}
+                            alt={c.name}
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 300px"
+                            className="object-contain"
+                          />
+                        </div>
                       ) : (
                         <div className="w-full h-40 bg-gray-950 flex items-center justify-center">
                           <span className="text-gray-700 text-4xl">?</span>
