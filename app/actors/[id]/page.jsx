@@ -131,6 +131,20 @@ export default async function ActorPage({ params }) {
     }, {})
   }
 
+  // Pre-tally per-character discussion comment counts (public read) so each
+  // collapsible character thread can show its count without a client fetch.
+  let commentCounts = {}
+  if (characterIds.length > 0) {
+    const { data: cRows } = await supabase
+      .from('comments')
+      .select('character_id')
+      .in('character_id', characterIds)
+    commentCounts = (cRows || []).reduce((acc, r) => {
+      acc[r.character_id] = (acc[r.character_id] || 0) + 1
+      return acc
+    }, {})
+  }
+
   return (
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -215,6 +229,13 @@ export default async function ActorPage({ params }) {
                       <p className="text-gray-300 text-sm">{character.rationale}</p>
                     </div>
                   )}
+
+                  <Discussion
+                    actorId={actor.id}
+                    characterId={character.id}
+                    collapsible
+                    initialCount={commentCounts[character.id] || 0}
+                  />
                 </div>
               </div>
             ))}
