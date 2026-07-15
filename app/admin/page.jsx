@@ -41,13 +41,120 @@ export default function AdminPage() {
   const [bracketMatchups, setBracketMatchups] = useState([])
   const [bracketMessage, setBracketMessage] = useState('')
 
+  const [submissions, setSubmissions] = useState([])
+  const [submissionNames, setSubmissionNames] = useState({})
+  const [rejectNotes, setRejectNotes] = useState({})
+  const [moderationMessage, setModerationMessage] = useState('')
+
   useEffect(() => {
     loadActors()
+    loadSubmissions()
   }, [])
 
   async function loadActors() {
     const { data } = await supabase.from('actors').select('*').order('name')
     setActors(data || [])
+  }
+
+  async function loadSubmissions() {
+    const { data } = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+    const list = data || []
+    setSubmissions(list)
+
+    const ids = [...new Set(list.map((s) => s.user_id))]
+    if (ids.length > 0) {
+      const { data: profs } = await supabase
+        .from('public_profiles')
+        .select('id, display_name')
+        .in('id', ids)
+      setSubmissionNames(
+        Object.fromEntries((profs || []).map((p) => [p.id, p.display_name]))
+      )
+    }
+  }
+
+  async function approveSubmission(s) {
+    setModerationMessage('')
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Find the actor by case-insensitive name, or create a new one.
+    let actorId = actors.find(
+      (a) => a.name.trim().toLowerCase() === s.actor_name.trim().toLowerCase()
+    )?.id
+
+    if (!actorId) {
+      const { data: newActor, error: actorError } = await supabase
+        .from('actors')
+        .insert([{ name: s.actor_name.trim(), photo_url: s.actor_photo_url }])
+        .select('id')
+        .single()
+      if (actorError) {
+        setModerationMessage('Error creating actor: ' + actorError.message)
+        return
+      }
+      actorId = newActor.id
+    }
+
+    const { error: charError } = await supabase.from('characters').insert([
+      {
+        actor_id: actorId,
+        name: s.character_name,
+        universe: s.universe,
+        power_tier: s.power_tier,
+        powers: s.powers,
+        rationale: s.rationale,
+        photo_url: s.character_photo_url,
+      },
+    ])
+    if (charError) {
+      setModerationMessage('Error creating character: ' + charError.message)
+      return
+    }
+
+    const { error: updateError } = await supabase
+      .from('submissions')
+      .update({
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user?.id ?? null,
+      })
+      .eq('id', s.id)
+    if (updateError) {
+      setModerationMessage('Character created, but marking approved failed: ' + updateError.message)
+      return
+    }
+
+    setModerationMessage('Approved "' + s.character_name + '" — now live.')
+    loadActors()
+    loadSubmissions()
+  }
+
+  async function rejectSubmission(s) {
+    setModerationMessage('')
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    const { error } = await supabase
+      .from('submissions')
+      .update({
+        status: 'rejected',
+        admin_note: rejectNotes[s.id]?.trim() || null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user?.id ?? null,
+      })
+      .eq('id', s.id)
+    if (error) {
+      setModerationMessage('Error: ' + error.message)
+    } else {
+      setModerationMessage('Rejected "' + s.character_name + '".')
+      loadSubmissions()
+    }
   }
 
   async function loadCharactersForActor(actorId) {
@@ -329,6 +436,75 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-yellow-400 mb-8">Admin Panel</h1>
+
+        {/* Moderation Queue */}
+        <div className="bg-gray-800 rounded-2xl p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4">
+            Moderation Queue
+            {submissions.length > 0 && (
+              <span className="ml-2 text-sm font-bold text-black bg-yellow-400 rounded-full px-2 py-0.5">
+                {submissions.length}
+              </span>
+            )}
+          </h2>
+          {submissions.length === 0 ? (
+            <p className="text-gray-500">No pending submissions.</p>
+          ) : (
+            <div className="space-y-4">
+              {submissions.map((s) => (
+                <div key={s.id} className="bg-gray-700 rounded-xl p-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-lg font-bold">
+                      {s.character_name}
+                      <span className="text-gray-400 font-normal"> — {s.actor_name}</span>
+                    </h3>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      by {submissionNames[s.user_id] || 'user'}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-gray-300 space-y-0.5">
+                    <p>Tier: <span className="font-semibold">{s.power_tier}</span>{s.universe && <span className="text-gray-400"> · {s.universe}</span>}</p>
+                    {s.powers && <p><span className="text-gray-500">Powers:</span> {s.powers}</p>}
+                    {s.rationale && <p><span className="text-gray-500">Rationale:</span> {s.rationale}</p>}
+                    {s.character_photo_url && (
+                      <p className="truncate"><span className="text-gray-500">Char photo:</span>{' '}
+                        <a href={s.character_photo_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{s.character_photo_url}</a>
+                      </p>
+                    )}
+                    {s.actor_photo_url && (
+                      <p className="truncate"><span className="text-gray-500">Actor photo:</span>{' '}
+                        <a href={s.actor_photo_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{s.actor_photo_url}</a>
+                      </p>
+                    )}
+                    {s.submitter_note && <p><span className="text-gray-500">Note:</span> {s.submitter_note}</p>}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => approveSubmission(s)}
+                      className="bg-green-600 text-white font-bold px-4 py-1.5 rounded-lg hover:bg-green-500"
+                    >
+                      Approve
+                    </button>
+                    <input
+                      type="text"
+                      value={rejectNotes[s.id] || ''}
+                      onChange={(e) => setRejectNotes((n) => ({ ...n, [s.id]: e.target.value }))}
+                      placeholder="Reason (optional)"
+                      className="flex-1 min-w-[8rem] bg-gray-600 rounded-lg px-3 py-1.5 text-sm text-white"
+                    />
+                    <button
+                      onClick={() => rejectSubmission(s)}
+                      className="bg-red-600 text-white font-bold px-4 py-1.5 rounded-lg hover:bg-red-500"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {moderationMessage && <p className="mt-4 text-green-400">{moderationMessage}</p>}
+        </div>
 
         {/* Add Actor */}
         <div className="bg-gray-800 rounded-2xl p-6 mb-8">

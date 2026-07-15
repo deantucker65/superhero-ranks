@@ -61,6 +61,12 @@ export default function AuthNav() {
       {user ? (
         <>
           <a
+            href="/submit"
+            className="text-gray-300 hover:text-yellow-400 transition"
+          >
+            Suggest
+          </a>
+          <a
             href="/account"
             className="text-gray-300 hover:text-yellow-400 transition"
           >
